@@ -66,6 +66,7 @@ export default function LandingPage() {
               src="/logo.png" 
               alt="Docc Logo" 
               fill 
+              sizes="40px"
               className="object-cover scale-150"
             />
           </div>
@@ -266,6 +267,7 @@ export default function LandingPage() {
                     src="/logo.png" 
                     alt="Docc Logo" 
                     fill 
+                    sizes="40px"
                     className="object-cover scale-150"
                   />
                 </div>

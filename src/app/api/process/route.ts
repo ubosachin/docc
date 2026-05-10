@@ -39,11 +39,26 @@ export async function POST(req: NextRequest) {
     (async () => {
       try {
         const response = await fetch(upload.fileUrl);
-        if (!response.ok) throw new Error("Failed to fetch PDF");
+        if (!response.ok) throw new Error(`Failed to fetch PDF from storage (HTTP ${response.status})`);
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
+        if (buffer.length === 0) throw new Error("Downloaded PDF is empty");
+
+        let pdfDocument: any;
+        let numPages: number;
+
+        try {
+          const result = await extractTextFromPDF(buffer);
+          pdfDocument = result.pdfDocument;
+          numPages = result.numPages;
+        } catch (pdfErr: any) {
+          throw new Error(`PDF initialization failed: ${pdfErr.message}`);
+        }
+
+        if (!numPages || numPages === 0) {
+          throw new Error("PDF has no readable pages");
+        }
         
-        const { pdfDocument, numPages } = await extractTextFromPDF(buffer);
         const isScanned = await isScannedPDF(pdfDocument);
         
         await Job.findByIdAndUpdate(job._id, { 
@@ -145,7 +160,11 @@ export async function POST(req: NextRequest) {
         });
       } catch (err: any) {
         console.error("Process API Error:", err);
-        await Job.findByIdAndUpdate(job._id, { status: "failed", currentStep: "Error: " + err.message, error: err.message });
+        await Job.findByIdAndUpdate(job._id, { 
+          status: "failed", 
+          currentStep: "Error: " + err.message, 
+          error: err.message 
+        });
       }
     })();
 

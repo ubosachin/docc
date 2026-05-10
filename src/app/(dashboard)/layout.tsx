@@ -68,6 +68,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 src="/logo.png" 
                 alt="Docc Logo" 
                 fill 
+                sizes="40px"
                 className="object-cover scale-150"
               />
             </div>

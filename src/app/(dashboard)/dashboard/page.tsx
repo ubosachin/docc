@@ -63,7 +63,12 @@ function DashboardContent() {
   const [activeTab, setActiveTab] = useState<"all" | "processing" | "completed" | "failed">("all");
 
   const fetchJobs = useCallback(async (showLoading = false) => {
-    if (!user) return;
+    // user not ready yet (Firebase auth still initialising) — silently skip,
+    // the effect will re-run once `user` changes from null → User object.
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     if (showLoading) setRefreshing(true);
     
     try {
@@ -88,20 +93,22 @@ function DashboardContent() {
     }
   }, [user]);
 
+  // Only start fetching once the auth state is known
+  const { loading: authLoading } = useAuthStore();
   useEffect(() => {
+    if (authLoading) return; // wait for Firebase to resolve
     fetchJobs();
-  }, [fetchJobs]);
+  }, [fetchJobs, authLoading]);
 
+  // Stable polling: derive hasActiveJobs outside the deps array
+  const hasActiveJobs = jobs.some(j => j.status === "processing" || j.status === "queued");
   useEffect(() => {
     if (!user) return;
-    
-    const hasActiveJobs = jobs.some(j => j.status === "processing" || j.status === "queued");
     const interval = setInterval(() => {
       fetchJobs();
     }, hasActiveJobs ? 3000 : 15000);
-    
     return () => clearInterval(interval);
-  }, [user?.uid, jobs.some(j => j.status === "processing" || j.status === "queued")]);
+  }, [user, hasActiveJobs, fetchJobs]);
 
   const handleDownload = async (jobId: string) => {
     const toastId = toast.loading("Preparing Excel download...");

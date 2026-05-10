@@ -49,7 +49,10 @@ export default function HistoryPage() {
   const [activeTab, setActiveTab] = useState<"all" | "completed" | "failed">("all");
 
   const fetchJobs = useCallback(async (showLoading = false) => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     if (showLoading) setRefreshing(true);
     
     try {
@@ -71,21 +74,20 @@ export default function HistoryPage() {
     }
   }, [user]);
 
+  const { loading: authLoading } = useAuthStore();
   useEffect(() => {
+    if (authLoading) return;
     fetchJobs();
-  }, [fetchJobs]);
+  }, [fetchJobs, authLoading]);
 
+  const hasActiveJobs = jobs.some(j => j.status === "processing" || j.status === "queued");
   useEffect(() => {
     if (!user) return;
-
-    const hasActiveJobs = jobs.some(j => j.status === "processing" || j.status === "queued");
     const interval = setInterval(() => {
       fetchJobs();
     }, hasActiveJobs ? 3000 : 20000);
-    
     return () => clearInterval(interval);
-  }, [user?.uid, jobs.some(j => j.status === "processing" || j.status === "queued")]);
-
+  }, [user, hasActiveJobs, fetchJobs]);
   const handleDownload = async (jobId: string) => {
     const toastId = toast.loading("Preparing Excel download...");
     try {
