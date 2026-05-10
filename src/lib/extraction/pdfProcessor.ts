@@ -1,5 +1,4 @@
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
-import { Canvas } from "skia-canvas";
 
 export interface TextItem {
   text: string;
@@ -16,24 +15,7 @@ export async function extractTextFromPDF(buffer: Buffer) {
     data: new Uint8Array(buffer),
     useSystemFonts: true,
     disableWorker: true,
-    // Add CanvasFactory for Node.js rendering support
-    CanvasFactory: {
-      create(width: number, height: number) {
-        const canvas = new Canvas(width, height);
-        const context = canvas.getContext("2d") as any;
-        return { canvas, context };
-      },
-      reset(canvasAndContext: any, width: number, height: number) {
-        canvasAndContext.canvas.width = width;
-        canvasAndContext.canvas.height = height;
-      },
-      destroy(canvasAndContext: any) {
-        canvasAndContext.canvas.width = 0;
-        canvasAndContext.canvas.height = 0;
-        canvasAndContext.canvas = null;
-        canvasAndContext.context = null;
-      },
-    },
+    standardFontDataUrl: "https://unpkg.com/pdfjs-dist@4.10.38/standard_fonts/",
   } as any);
   
   const pdfDocument = await loadingTask.promise;

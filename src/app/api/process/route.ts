@@ -47,6 +47,11 @@ export async function POST(req: NextRequest) {
           currentStep: `Processing ${numPages} pages (${isScanned ? "OCR" : "Direct"})...` 
         });
 
+        let tesseractWorker: Tesseract.Worker | null = null;
+        if (isScanned) {
+          tesseractWorker = await Tesseract.createWorker(["eng", "hin", "ben", "mar", "pan", "guj"]);
+        }
+
         for (let i = 1; i <= numPages; i++) {
           await Job.findByIdAndUpdate(job._id, { 
             progress: Math.round((i / numPages) * 95),
@@ -56,41 +61,44 @@ export async function POST(req: NextRequest) {
 
           let blocks: any[] = [];
 
-          if (isScanned) {
+          if (isScanned && tesseractWorker) {
             // OCR Path - Render at 400 DPI equivalent
             const page = await pdfDocument.getPage(i);
             const scale = 3200 / page.getViewport({ scale: 1 }).width;
             const viewport = page.getViewport({ scale });
             
-            const canvas = new Canvas(viewport.width, viewport.height);
-            const context = canvas.getContext("2d");
-            
-            await page.render({
-              canvasContext: context as any,
-              viewport: viewport,
-            }).promise;
-            
-            const pageImageBuffer = await canvas.toBuffer("png");
-            
-            // Preprocess image for OCR fidelity
-            const processedImage = await preprocessImage(pageImageBuffer);
-            
-            const worker = await Tesseract.createWorker(["eng", "hin", "ben", "mar", "pan", "guj"]);
-            const { data } = await worker.recognize(processedImage);
-            await worker.terminate();
-            
-            // Map Tesseract blocks to our format
-            blocks = data.blocks?.map((block: any) => block.paragraphs.flatMap((p: any) => p.lines.flatMap((l: any) => l.words.map((w: any) => ({
-              text: w.text,
-              x: w.bbox.x0,
-              y: w.bbox.y0,
-              width: w.bbox.x1 - w.bbox.x0,
-              height: w.bbox.y1 - w.bbox.y0,
-              confidence: w.confidence
-            }))))) || [];
-            
-            // Re-group into our block format
-            blocks = groupIntoSpatialBlocks(blocks);
+            try {
+              const canvas = new Canvas(viewport.width, viewport.height);
+              const context = canvas.getContext("2d");
+              
+              await page.render({
+                canvasContext: context as any,
+                viewport: viewport,
+              }).promise;
+              
+              const pageImageBuffer = await canvas.toBuffer("png");
+              
+              // Preprocess image for OCR fidelity
+              const processedImage = await preprocessImage(pageImageBuffer);
+              
+              const { data } = await tesseractWorker.recognize(processedImage);
+              
+              // Map Tesseract blocks to our format
+              blocks = data.blocks?.map((block: any) => block.paragraphs.flatMap((p: any) => p.lines.flatMap((l: any) => l.words.map((w: any) => ({
+                text: w.text,
+                x: w.bbox.x0,
+                y: w.bbox.y0,
+                width: w.bbox.x1 - w.bbox.x0,
+                height: w.bbox.y1 - w.bbox.y0,
+                confidence: w.confidence
+              }))))) || [];
+              
+              // Re-group into our block format
+              blocks = groupIntoSpatialBlocks(blocks);
+            } catch (renderError: any) {
+              console.error(`Page ${i} processing failed:`, renderError);
+              blocks = [];
+            }
           } else {
             // Direct Path
             blocks = await processPageText(pdfDocument, i);
@@ -120,6 +128,10 @@ export async function POST(req: NextRequest) {
           if (rowsToInsert.length > 0) {
             await ExtractedRow.insertMany(rowsToInsert);
           }
+        }
+
+        if (tesseractWorker) {
+          await tesseractWorker.terminate();
         }
 
         await Job.findByIdAndUpdate(job._id, {
