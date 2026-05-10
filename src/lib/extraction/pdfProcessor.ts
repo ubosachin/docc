@@ -1,5 +1,11 @@
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 
+// CRITICAL: Disable PDF.js worker entirely for server-side (Node.js/Vercel) usage.
+// Setting workerSrc to "" prevents PDF.js from trying to resolve or load
+// pdf.worker.mjs, which does not exist in the Next.js server bundle.
+pdfjs.GlobalWorkerOptions.workerSrc = "";
+
+
 export interface TextItem {
   text: string;
   x: number;
