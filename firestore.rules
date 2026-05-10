@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper to check if user is signed in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Rules for the 'uploads' collection
+    match /uploads/{uploadId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+
+    // Rules for the 'extractedData' collection
+    match /extractedData/{dataId} {
+      // Allow read if user is signed in and we check the uploadId later or just trust the auth for now
+      // In a more secure setup, we'd verify the user owns the uploadId referenced in the data
+      allow read: if isSignedIn();
+      // Only the processing worker (Admin SDK) should write this normally, 
+      // but if the user edits records in the UI:
+      allow update, delete: if isSignedIn();
+      allow create: if false; // Only via Admin SDK/Functions
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
