@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
             const context = canvas.getContext("2d");
             
             await page.render({
-              canvasContext: context,
+              canvasContext: context as any,
               viewport: viewport,
             }).promise;
             
