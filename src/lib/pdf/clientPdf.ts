@@ -1,11 +1,18 @@
 "use client";
 
+// Browser-only PDF.js — used exclusively for PDF preview rendering in the UI.
+// NEVER import this in API routes or server-side code.
+//
+// We use a plain string URL (not ?url import syntax) because:
+// - ?url is a Vite convention; this project uses Next.js + webpack
+// - Webpack will correctly resolve /pdf.worker.min.mjs from the /public directory
+// - This avoids version-mismatch and workerPort errors
+
 import * as pdfjsLib from "pdfjs-dist";
-// Use the legacy worker for broader compatibility or the standard one
-import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 if (typeof window !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+  // Point to the worker file served statically from /public
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 }
 
 export { pdfjsLib };

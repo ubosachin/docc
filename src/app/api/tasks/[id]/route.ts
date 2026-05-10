@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db/mongodb";
 import { Job, ExtractedRow, Upload } from "@/lib/db/models";
-import { adminAuth } from "@/lib/firebase/admin";
+import { requireAuth, AuthError } from "@/lib/auth/requireAuth";
 import { UTApi } from "uploadthing/server";
 
 const utapi = new UTApi();
@@ -11,15 +11,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const idToken = authHeader.split("Bearer ")[1];
-    const decodedToken = await adminAuth().verifyIdToken(idToken);
-    const userId = decodedToken.uid;
-
+    const userId = await requireAuth(req);
     const { id } = await params;
 
     await dbConnect();
@@ -48,6 +40,9 @@ export async function DELETE(
 
     return NextResponse.json({ message: "Job deleted successfully" });
   } catch (error: any) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("DELETE Job Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db/mongodb";
 import { Job, ExtractedRow, Upload } from "@/lib/db/models";
-import { extractTextFromPDF, processPageText, isScannedPDF, detectLanguages } from "@/lib/extraction/pdfProcessor";
+import { extractTextFromPDF, processPageText, isScannedPDF } from "@/lib/extraction/pdfProcessor";
 import { preprocessImage } from "@/lib/extraction/imageProcessor";
 import * as Tesseract from "tesseract.js";
 import { Canvas } from "skia-canvas";
+import mongoose from "mongoose";
 
 export async function POST(req: NextRequest) {
   try {
     const { uploadId } = await req.json();
     if (!uploadId) return NextResponse.json({ error: "Missing uploadId" }, { status: 400 });
+    if (!mongoose.isValidObjectId(uploadId)) {
+      return NextResponse.json({ error: "Invalid uploadId" }, { status: 400 });
+    }
 
     await dbConnect();
     const upload = await Upload.findById(uploadId);

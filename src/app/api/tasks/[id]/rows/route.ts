@@ -1,22 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db/mongodb";
 import { Job, ExtractedRow } from "@/lib/db/models";
-import { adminAuth } from "@/lib/firebase/admin";
+import { requireAuth, AuthError } from "@/lib/auth/requireAuth";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const idToken = authHeader.split("Bearer ")[1];
-    const decodedToken = await adminAuth().verifyIdToken(idToken);
-    const userId = decodedToken.uid;
-
+    const userId = await requireAuth(req);
     const { id } = await params;
 
     await dbConnect();
@@ -26,10 +18,23 @@ export async function GET(
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
-    const rows = await ExtractedRow.find({ jobId: job._id }).sort({ page: 1, rowIndex: 1 });
+    const rows = await ExtractedRow.find({ jobId: job._id })
+      .sort({ page: 1, rowIndex: 1 })
+      .lean();
 
-    return NextResponse.json(rows);
+    // Coerce Mongoose Map → plain object for correct JSON serialization
+    const normalizedRows = (rows as any[]).map((row: any) => ({
+      ...row,
+      data: row.data instanceof Map
+        ? Object.fromEntries(row.data)
+        : (typeof row.data?.toObject === "function" ? row.data.toObject() : row.data) ?? {},
+    }));
+
+    return NextResponse.json(normalizedRows);
   } catch (error: any) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("GET Rows Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -40,14 +45,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const idToken = authHeader.split("Bearer ")[1];
-    await adminAuth().verifyIdToken(idToken);
-
+    await requireAuth(req);
     const { id } = await params;
     const { rowId, data } = await req.json();
 
@@ -64,6 +62,9 @@ export async function PATCH(
 
     return NextResponse.json(updatedRow);
   } catch (error: any) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("PATCH Row Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -100,7 +100,7 @@ const ExtractedRowSchema: Schema = new Schema(
     jobId: { type: Schema.Types.ObjectId, ref: "Job", required: true, index: true },
     page: { type: Number, required: true },
     rowIndex: { type: Number, required: true },
-    data: { type: Map, of: Schema.Types.Mixed, required: true },
+    data: { type: Schema.Types.Mixed, required: true },
     rawText: { type: String },
     confidence: { type: Number, default: 1 },
     isEdited: { type: Boolean, default: false },
