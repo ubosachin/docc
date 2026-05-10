@@ -1,10 +1,6 @@
-import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
-
-// CRITICAL: Disable PDF.js worker entirely for server-side (Node.js/Vercel) usage.
-// Setting workerSrc to "" prevents PDF.js from trying to resolve or load
-// pdf.worker.mjs, which does not exist in the Next.js server bundle.
-pdfjs.GlobalWorkerOptions.workerSrc = "";
-
+// DO NOT use a static import for pdfjs-dist here.
+// Turbopack/Webpack will statically analyze it and try to bundle pdf.worker.mjs
+// into the server chunk, which fails. Dynamic import bypasses this analysis.
 
 export interface TextItem {
   text: string;
@@ -17,16 +13,25 @@ export interface TextItem {
 }
 
 export async function extractTextFromPDF(buffer: Buffer) {
-  const loadingTask = pdfjs.getDocument({
+  // Dynamic import: evaluated at runtime, invisible to bundler static analysis.
+  const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+
+  // Disable worker entirely — must be set AFTER the dynamic import resolves.
+  // Empty string tells PDF.js: no worker, run synchronously in main thread.
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "";
+
+  const loadingTask = pdfjsLib.getDocument({
     data: new Uint8Array(buffer),
-    useSystemFonts: true,
     disableWorker: true,
+    isEvalSupported: false,
+    useWorkerFetch: false,
+    useSystemFonts: true,
     standardFontDataUrl: "https://unpkg.com/pdfjs-dist@4.10.38/standard_fonts/",
   } as any);
-  
+
   const pdfDocument = await loadingTask.promise;
   const numPages = pdfDocument.numPages;
-  
+
   return { pdfDocument, numPages };
 }
 
