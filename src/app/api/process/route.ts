@@ -4,7 +4,7 @@ import { Job, ExtractedRow, Upload } from "@/lib/db/models";
 import { extractTextFromPDF, processPageText, isScannedPDF, detectLanguages } from "@/lib/extraction/pdfProcessor";
 import { preprocessImage } from "@/lib/extraction/imageProcessor";
 import * as Tesseract from "tesseract.js";
-import { convert } from "pdf-img-convert";
+import { Canvas } from "skia-canvas";
 
 export async function POST(req: NextRequest) {
   try {
@@ -57,15 +57,23 @@ export async function POST(req: NextRequest) {
           let blocks: any[] = [];
 
           if (isScanned) {
-            // OCR Path - Render at 400 DPI equivalent (approx 3200px width for A4)
-            const pageImages = await convert(buffer, {
-              page_numbers: [i],
-              base64: false,
-              width: 3200 // 400 DPI for high-precision OCR
-            });
+            // OCR Path - Render at 400 DPI equivalent
+            const page = await pdfDocument.getPage(i);
+            const scale = 3200 / page.getViewport({ scale: 1 }).width;
+            const viewport = page.getViewport({ scale });
+            
+            const canvas = new Canvas(viewport.width, viewport.height);
+            const context = canvas.getContext("2d");
+            
+            await page.render({
+              canvasContext: context,
+              viewport: viewport,
+            }).promise;
+            
+            const pageImageBuffer = await canvas.toBuffer("png");
             
             // Preprocess image for OCR fidelity
-            const processedImage = await preprocessImage(pageImages[0] as Buffer);
+            const processedImage = await preprocessImage(pageImageBuffer);
             
             const worker = await Tesseract.createWorker(["eng", "hin", "ben", "mar", "pan", "guj"]);
             const { data } = await worker.recognize(processedImage);

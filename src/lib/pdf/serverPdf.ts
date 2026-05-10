@@ -1,5 +1,5 @@
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
-import { createCanvas } from "canvas";
+import { Canvas } from "skia-canvas";
 
 export async function extractPdf(pdfBuffer: Buffer) {
   const loadingTask = pdfjs.getDocument({
@@ -8,7 +8,7 @@ export async function extractPdf(pdfBuffer: Buffer) {
     disableWorker: true,
     CanvasFactory: {
       create(width: number, height: number) {
-        const canvas = createCanvas(width, height);
+        const canvas = new Canvas(width, height);
         const context = canvas.getContext("2d");
         return { canvas, context };
       },
