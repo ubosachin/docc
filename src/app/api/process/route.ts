@@ -57,60 +57,85 @@ export async function POST(req: NextRequest) {
         const docType = detectDocumentType(sampleText);
 
         await Job.findByIdAndUpdate(job._id, {
+
           totalPages: numPages,
           currentStep: `Processing ${numPages} pages [${docType === "voter_list" ? "Voter List" : "Document"} / ${isScanned ? "OCR" : "Digital"}]...`,
         });
 
-        let tesseractWorker: Tesseract.Worker | null = null;
+        const CONCURRENCY = 4;
+        let tesseractScheduler: any = null;
+        
         if (isScanned) {
-          tesseractWorker = await Tesseract.createWorker(["eng", "hin", "ben", "mar", "pan", "guj"]);
-        }
-
-        for (let i = 1; i <= numPages; i++) {
-          await Job.findByIdAndUpdate(job._id, {
-            progress: Math.round((i / numPages) * 95),
-            currentStep: `Processing Page ${i} of ${numPages}...`,
-            processedPages: i,
+          tesseractScheduler = Tesseract.createScheduler();
+          // Initialize 4 workers for parallel OCR
+          const workerPromises = Array(CONCURRENCY).fill(0).map(async () => {
+            const worker = await Tesseract.createWorker(["eng", "hin", "ben", "mar", "pan", "guj"]);
+            tesseractScheduler.addWorker(worker);
+            return worker;
           });
-
-          let pageText = "";
-
-          if (isScanned && tesseractWorker) {
-            // ── Extract raw image from PDF page (no canvas needed) ──────────
-            const page = await pdfDocument.getPage(i);
-            const imgBuf = await extractPageImage(page);
-
-            if (imgBuf) {
-              // Preprocess: grayscale + sharpen for better OCR
-              const processed = await sharp(imgBuf)
-                .grayscale()
-                .normalize()
-                .sharpen()
-                .toBuffer();
-              const { data } = await tesseractWorker.recognize(processed);
-              pageText = data.text || "";
-            } else {
-              // Fallback: try digital text layer even on "scanned" PDF
-              const page2 = await pdfDocument.getPage(i);
-              const tc = await page2.getTextContent();
-              pageText = tc.items.map((it: any) => it.str + (it.hasEOL ? "\n" : " ")).join("");
-            }
-          } else {
-            // Digital PDF — use text content directly
-            const page = await pdfDocument.getPage(i);
-            const tc = await page.getTextContent();
-            // Preserve line breaks using transform Y coords
-            pageText = reconstructPageText(tc.items);
-          }
-
-          // ── Parse and store rows ─────────────────────────────────────────
-          const rowsToInsert = buildRows(pageText, i, docType, job._id);
-          if (rowsToInsert.length > 0) {
-            await ExtractedRow.insertMany(rowsToInsert);
-          }
+          await Promise.all(workerPromises);
         }
 
-        if (tesseractWorker) await tesseractWorker.terminate();
+        let processedCount = 0;
+        const pageIndices = Array.from({ length: numPages }, (_, i) => i + 1);
+        
+        // Process pages with limited concurrency
+        const processPool = async () => {
+          const queue = [...pageIndices];
+          const workers = Array(CONCURRENCY).fill(0).map(async () => {
+            while (queue.length > 0) {
+              const i = queue.shift()!;
+              try {
+                let pageText = "";
+
+                if (isScanned && tesseractScheduler) {
+                  const page = await pdfDocument.getPage(i);
+                  const imgBuf = await extractPageImage(page);
+
+                  if (imgBuf) {
+                    const processed = await sharp(imgBuf)
+                      .grayscale()
+                      .normalize()
+                      .sharpen()
+                      .toBuffer();
+                    
+                    const { data } = await tesseractScheduler.addJob("recognize", processed);
+                    pageText = data.text || "";
+                  } else {
+                    const page2 = await pdfDocument.getPage(i);
+                    const tc = await page2.getTextContent();
+                    pageText = tc.items.map((it: any) => it.str + (it.hasEOL ? "\n" : " ")).join("");
+                  }
+                } else {
+                  const page = await pdfDocument.getPage(i);
+                  const tc = await page.getTextContent();
+                  pageText = reconstructPageText(tc.items);
+                }
+
+                const rowsToInsert = buildRows(pageText, i, docType, job._id);
+                if (rowsToInsert.length > 0) {
+                  await ExtractedRow.insertMany(rowsToInsert);
+                }
+
+                processedCount++;
+                await Job.findByIdAndUpdate(job._id, {
+                  progress: Math.round((processedCount / numPages) * 95),
+                  currentStep: `Processing Page ${processedCount} of ${numPages}...`,
+                  processedPages: processedCount,
+                });
+              } catch (pageErr: any) {
+                console.error(`Error processing page ${i}:`, pageErr);
+              }
+            }
+          });
+          await Promise.all(workers);
+        };
+
+        await processPool();
+
+        if (tesseractScheduler) {
+          await tesseractScheduler.terminate();
+        }
 
         await Job.findByIdAndUpdate(job._id, {
           progress: 100,
