@@ -18,7 +18,10 @@ let _SkiaCanvasFactory: any = null;
 async function getPdfJs() {
   if (_pdfjsLib) return _pdfjsLib;
 
-  _pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  // @ts-ignore
+  _pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
+
+
   const skia = await import("skia-canvas");
   _CanvasClass = skia.Canvas;
 
@@ -64,15 +67,12 @@ async function getPdfJs() {
   };
 
   // ── Fix workerSrc ──────────────────────────────────────────────────────
-  // pdfjs v4 in Node.js sets workerSrc = "./pdf.worker.mjs" (relative — fails).
-  // Override with absolute file:// URL.
-  const { resolve } = await import("path");
-  const { pathToFileURL } = await import("url");
-  const workerPath = resolve(
-    process.cwd(),
-    "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"
-  );
-  _pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
+  // In serverless environments (Vercel), resolving node_modules at runtime
+  // via file:// is unreliable. We use a CDN fallback to ensure the worker
+  // is always found, preventing the "Setting up fake worker failed" error.
+  _pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${_pdfjsLib.version}/build/pdf.worker.min.mjs`;
+
+
 
   return _pdfjsLib;
 }
@@ -92,7 +92,8 @@ export async function extractTextFromPDF(buffer: Buffer) {
     disableRange: true,
     disableStream: true,
     standardFontDataUrl:
-      "https://unpkg.com/pdfjs-dist@4.10.38/standard_fonts/",
+      `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`,
+
   } as any);
 
   const pdfDocument = await loadingTask.promise;

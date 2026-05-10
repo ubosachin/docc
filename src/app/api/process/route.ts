@@ -69,7 +69,8 @@ export async function POST(req: NextRequest) {
           tesseractScheduler = Tesseract.createScheduler();
           // Initialize 4 workers for parallel OCR
           const workerPromises = Array(CONCURRENCY).fill(0).map(async () => {
-            const worker = await Tesseract.createWorker(["eng", "hin", "ben", "mar", "pan", "guj"]);
+            const worker = await Tesseract.createWorker(["eng", "hin"]);
+
             tesseractScheduler.addWorker(worker);
             return worker;
           });
@@ -214,10 +215,11 @@ async function extractPageImage(page: any): Promise<Buffer | null> {
     // Scale to ~300 DPI equivalent width for good OCR
     const targetW = Math.min(width, 3000);
     const scale   = targetW / width;
-    return await sharp(buf, { raw: { width, height, channels: 4 } })
+    return await sharp(buf, { raw: { width, height, channels: 4 }, density: 300 })
       .resize(Math.round(width * scale), Math.round(height * scale))
       .png()
       .toBuffer();
+
   } catch (err: any) {
     console.error("extractPageImage failed:", err.message);
     return null;

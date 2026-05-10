@@ -41,19 +41,19 @@ export interface VoterRecord {
 // ─── Field label patterns (Hindi + English) ───────────────────────────────────
 
 const LABEL = {
-  serialNo: /(?:क्र\.?\s*सं\.?|S\.?\s*No\.?|Serial\s*No\.?|क्रम\s*सं\.?|क्रमांक)[:\s]*/i,
-  houseNo:  /(?:मकान\s*(?:सं\.?|क्र\.?|संख्या)|House\s*No\.?|M\.?\s*No\.?)[:\s]*/i,
-  voterName:/(?:मतदाता\s*का\s*नाम|नाम|Elector'?s?\s*Name|Voter'?s?\s*Name|Name)[:\s]*/i,
-  relative: /(?:पिता|पति|माता|पिता\/पति|Father'?s?\s*Name|Husband'?s?\s*Name|Guardian'?s?\s*Name)[:\s]*/i,
-  relation: /(?:संबंध|Relation(?:ship)?)[:\s]*/i,
+  serialNo: /(?:क्र\.?|क्र[०॰]\.?|क्रम)\s*(?:सं\.?|सं[०॰]\.?|संख्या)|S\.?\s*No\.?|Serial\s*No\.?|क्रमांक[:\s]*/i,
+  houseNo:  /(?:मकान|गृह)\s*(?:सं\.?|सं[०॰]\.?|क्र\.?|क्र[०॰]\.?|संख्या|नं\.?|नं[०॰]\.?)|House\s*No\.?|M\.?\s*No\.?[:\s]*/i,
+  voterName:/(?:मतदाता\s*का\s*नाम|निर्वाचक\s*का\s*नाम|नाम|Elector'?s?\s*Name|Voter'?s?\s*Name|Name)[:\s]*/i,
+  relative: /(?:पिता|पति|माता|पिता\/पति|संरक्षक|Father'?s?\s*Name|Husband'?s?\s*Name|Guardian'?s?\s*Name)[:\s]*/i,
+  relation: /(?:संबंध|नाता|Relation(?:ship)?)[:\s]*/i,
   gender:   /(?:लिंग|Gender|Sex)[:\s]*/i,
   age:      /(?:आयु|उम्र|Age)[:\s]*/i,
-  epicNo:   /(?:EPIC\s*(?:No\.?|क्र\.?)|पहचान\s*पत्र|Elector\s*Photo\s*Identity\s*Card|मतदाता\s*पहचान)[:\s]*/i,
+  epicNo:   /(?:EPIC\s*(?:No\.?|क्र\.?|क्र[०॰]\.?)|पहचान\s*पत्र|Elector\s*Photo\s*Identity\s*Card|मतदाता\s*पहचान)[:\s]*/i,
 };
 
 const GENDER_MAP: Record<string, string> = {
-  "पुरूष": "Male", "पुरुष": "Male", "M": "Male", "Male": "Male",
-  "महिला": "Female", "F": "Female", "Female": "Female",
+  "पुरूष": "Male", "पुरुष": "Male", "M": "Male", "Male": "Male", "पु": "Male", "पु.": "Male",
+  "महिला": "Female", "F": "Female", "Female": "Female", "म": "Female", "म.": "Female",
   "अन्य": "Other", "Other": "Other", "O": "Other",
 };
 
@@ -62,6 +62,7 @@ const GENDER_MAP: Record<string, string> = {
 export function detectDocumentType(text: string): "voter_list" | "generic" {
   const voterSignals = [
     /मतदाता\s*सूची/,
+    /निर्वाचक\s*नामावली/,
     /Electoral\s*Roll/i,
     /Voter\s*List/i,
     /Election\s*Commission/i,
@@ -69,12 +70,16 @@ export function detectDocumentType(text: string): "voter_list" | "generic" {
     /मतदाता\s*पहचान/,
     /बूथ\s*संख्या|Booth\s*No/i,
     /पोलिंग\s*स्टेशन|Polling\s*Station/i,
-    /मकान\s*सं/,
+    /नगर\s*निगम/,
+    /मकान\s*(?:सं|नं|क्र)/,
     /क्र\.?\s*सं/,
+    /क्र[०॰]\.?\s*सं[०॰]/,
   ];
   const matches = voterSignals.filter(p => p.test(text)).length;
-  return matches >= 3 ? "voter_list" : "generic";
+  return matches >= 2 ? "voter_list" : "generic";
 }
+
+
 
 // ─── Strategy 1: Block-based parsing (for structured OCR / digital PDFs) ─────
 
@@ -162,7 +167,8 @@ export function parsePageText(
 
   // Split the page text into voter card sections.
   // Electoral rolls typically start each entry with a serial number.
-  const sectionPattern = /(?=(?:क्र\.?\s*सं\.?|S\.?\s*No\.?|Serial\s*No\.?)[:\s]*\d)/i;
+  const sectionPattern = /(?=(?:क्र\.?|क्र[०॰]\.?|क्रम)\s*(?:सं\.?|सं[०॰]\.?|संख्या)|S\.?\s*No\.?|Serial\s*No\.?|क्रमांक[:\s]*\d)/i;
+
   const sections = text.split(sectionPattern).filter(s => s.trim().length > 20);
 
   if (sections.length <= 1) {

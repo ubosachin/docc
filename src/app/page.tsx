@@ -68,6 +68,7 @@ export default function LandingPage() {
               fill 
               sizes="40px"
               className="object-cover scale-150"
+              priority
             />
           </div>
           <span className="ml-3 text-2xl font-black tracking-tight text-gray-900">Docc</span>

@@ -70,6 +70,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 fill 
                 sizes="40px"
                 className="object-cover scale-150"
+                priority
               />
             </div>
             {isSidebarOpen && <span className="font-bold text-2xl tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-blue-500">Docc</span>}
