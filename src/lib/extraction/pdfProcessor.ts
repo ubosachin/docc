@@ -20,7 +20,7 @@ export async function extractTextFromPDF(buffer: Buffer) {
     CanvasFactory: {
       create(width: number, height: number) {
         const canvas = new Canvas(width, height);
-        const context = canvas.getContext("2d");
+        const context = canvas.getContext("2d") as any;
         return { canvas, context };
       },
       reset(canvasAndContext: any, width: number, height: number) {
