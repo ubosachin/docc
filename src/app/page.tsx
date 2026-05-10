@@ -20,8 +20,9 @@ import {
   Languages,
   Layers,
   Layout,
-  MousePointer2
+  MousePointer2 
 } from "lucide-react";
+import Image from "next/image";
 
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { auth } from "@/lib/firebase/clientApp";
@@ -60,10 +61,15 @@ export default function LandingPage() {
       {/* Premium Navigation */}
       <header className={`px-6 lg:px-12 h-20 flex items-center border-b sticky top-0 z-50 transition-all duration-500 ${scrolled ? "bg-white/70 backdrop-blur-2xl border-gray-200 shadow-sm" : "bg-transparent border-transparent"}`}>
         <Link className="flex items-center justify-center group" href="/">
-          <div className="bg-indigo-600 p-1.5 rounded-xl rotate-[-6deg] group-hover:rotate-0 transition-all duration-500 shadow-lg shadow-indigo-200">
-            <FileText className="h-6 w-6 text-white" />
+          <div className="relative h-10 w-10 overflow-hidden rounded-xl rotate-[-6deg] group-hover:rotate-0 transition-all duration-500 shadow-lg shadow-indigo-200">
+            <Image 
+              src="/logo.png" 
+              alt="Docc Logo" 
+              fill 
+              className="object-cover scale-150"
+            />
           </div>
-          <span className="ml-3 text-2xl font-black tracking-tight text-gray-900">Conv<span className="text-indigo-600">AI</span></span>
+          <span className="ml-3 text-2xl font-black tracking-tight text-gray-900">Docc</span>
         </Link>
         <nav className="ml-auto flex gap-8 items-center">
           <Link className="text-sm font-bold text-gray-500 hover:text-indigo-600 transition-colors hidden md:block" href="#features">
@@ -176,7 +182,7 @@ export default function LandingPage() {
                         <div className="w-3 h-3 rounded-full bg-amber-500" />
                         <div className="w-3 h-3 rounded-full bg-emerald-500" />
                       </div>
-                      <div className="text-emerald-400">$ convai --universal --fidelity-mode</div>
+                      <div className="text-emerald-400">$ docc --universal --fidelity-mode</div>
                       <div className="text-gray-500">{"{"}</div>
                       <div className="pl-4 text-indigo-300">"input_language": "Detected: Hindi + Arabic",</div>
                       <div className="pl-4 text-indigo-300">"extraction_mode": "Spatial_Coordinate",</div>
@@ -237,7 +243,7 @@ export default function LandingPage() {
               <div className="relative z-10 max-w-4xl mx-auto">
                 <h2 className="text-5xl md:text-8xl font-black text-white mb-10 leading-[0.85] tracking-tighter">Digitize without <br /> Compromise.</h2>
                 <p className="text-indigo-100 text-xl md:text-2xl mb-16 font-medium leading-relaxed">
-                  Join the thousands of data professionals using ConvAI to turn complex PDF records into clean, structured Excel data.
+                  Join the thousands of data professionals using Docc to turn complex PDF records into clean, structured Excel data.
                 </p>
                 <Link href="/register">
                   <Button size="lg" className="h-20 px-16 bg-white text-indigo-600 hover:bg-gray-50 font-black text-2xl rounded-[2rem] shadow-2xl transition-all hover:scale-105 active:scale-95">
@@ -255,10 +261,15 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row justify-between items-start gap-16">
             <div className="space-y-8 max-w-md">
               <Link className="flex items-center group" href="/">
-                <div className="bg-indigo-600 p-1.5 rounded-xl">
-                  <FileText className="h-6 w-6 text-white" />
+                <div className="relative h-10 w-10 overflow-hidden rounded-xl">
+                  <Image 
+                    src="/logo.png" 
+                    alt="Docc Logo" 
+                    fill 
+                    className="object-cover scale-150"
+                  />
                 </div>
-                <span className="ml-3 text-2xl font-black tracking-tight text-gray-900">Conv<span className="text-indigo-600">AI</span></span>
+                <span className="ml-3 text-2xl font-black tracking-tight text-gray-900">Docc</span>
               </Link>
               <p className="text-gray-500 font-medium text-lg leading-relaxed">
                 The leading edge of spatial document digitization. Preserving the world's documents one coordinate at a time.
@@ -284,7 +295,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="mt-32 pt-10 border-t border-gray-50 flex flex-col sm:flex-row justify-between gap-8 text-[10px] font-black text-gray-300 uppercase tracking-[0.3em]">
-            <div>© 2024 ConvAI — Universal Digitization Systems</div>
+            <div>© 2024 Docc — Universal Digitization Systems</div>
             <div className="flex gap-10">
               <Link href="#" className="hover:text-indigo-600">Privacy</Link>
               <Link href="#" className="hover:text-indigo-600">Terms</Link>

@@ -11,8 +11,11 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "DocuExtract | AI PDF to Excel Platform",
-  description: "Extract structured data from government PDFs with AI accuracy.",
+  title: "Docc | Intelligent PDF Digitization",
+  description: "Extract structured data from complex PDFs with AI accuracy.",
+  icons: {
+    icon: "/favicon.png",
+  },
 };
 
 export default function RootLayout({

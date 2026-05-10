@@ -10,11 +10,11 @@ import {
   History, 
   Settings, 
   LogOut, 
-  FileText,
   Menu,
   X,
   Plus
 } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
@@ -61,12 +61,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           isSidebarOpen ? "w-64" : "w-20"
         } transition-all duration-300 ease-in-out border-r bg-white flex flex-col hidden md:flex`}
       >
-        <div className="h-16 flex items-center px-6 border-b">
+        <div className="h-20 flex items-center px-6 border-b">
           <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="bg-indigo-600 p-1.5 rounded-lg text-white">
-              <FileText className="h-5 w-5" />
+            <div className="relative h-10 w-10 overflow-hidden rounded-xl">
+              <Image 
+                src="/logo.png" 
+                alt="Docc Logo" 
+                fill 
+                className="object-cover scale-150"
+              />
             </div>
-            {isSidebarOpen && <span className="font-bold text-xl tracking-tight">DocuExtract</span>}
+            {isSidebarOpen && <span className="font-bold text-2xl tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-blue-500">Docc</span>}
           </Link>
         </div>
 
@@ -137,7 +142,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
              >
                <Menu className="h-6 w-6" />
              </Button>
-             <h1 className="text-lg font-semibold text-gray-900 md:hidden">DocuExtract</h1>
+             <h1 className="text-xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-blue-500 md:hidden">Docc</h1>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/upload">
