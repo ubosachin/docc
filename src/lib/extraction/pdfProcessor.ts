@@ -13,29 +13,7 @@ export interface TextItem {
 // Module-level cache — only initialise once per server process
 let _pdfjsLib: any = null;
 let _CanvasClass: any = null;
-
-/**
- * Returns a CanvasFactory object that pdfjs uses for all internal canvas
- * operations (e.g. drawing inline images embedded in a page).
- * By using skia-canvas here, every sub-canvas pdfjs creates is a skia-canvas
- * instance — so ctx.drawImage(skiaCanvas) works without type errors.
- */
-function makeSkiaCanvasFactory(CanvasClass: any) {
-  return {
-    create(width: number, height: number) {
-      const canvas = new CanvasClass(Math.ceil(width) || 1, Math.ceil(height) || 1);
-      return { canvas, context: canvas.getContext("2d") };
-    },
-    reset(pair: any, width: number, height: number) {
-      pair.canvas.width = Math.ceil(width) || 1;
-      pair.canvas.height = Math.ceil(height) || 1;
-    },
-    destroy(pair: any) {
-      pair.canvas = null;
-      pair.context = null;
-    },
-  };
-}
+let _SkiaCanvasFactory: any = null;
 
 async function getPdfJs() {
   if (_pdfjsLib) return _pdfjsLib;
@@ -44,8 +22,50 @@ async function getPdfJs() {
   const skia = await import("skia-canvas");
   _CanvasClass = skia.Canvas;
 
-  // In Node.js, pdfjs v4 automatically sets workerSrc = "./pdf.worker.mjs"
-  // (a relative path that doesn't resolve). Override with an absolute file:// URL.
+  // ── Build a proper CanvasFactory class ────────────────────────────────
+  //
+  // pdfjs calls: new CanvasFactory({ enableHWA }) at line ~487759 of pdf.mjs.
+  // It expects a CLASS extending BaseCanvasFactory with _createCanvas() overridden.
+  //
+  // Passing an object literal was wrong — new objectLiteral() returns an empty
+  // instance with no prototype methods, so pdfjs falls back to NodeCanvasFactory
+  // which tries require('@napi-rs/canvas') and then falls back to its own
+  // CanvasElement type, causing the drawImage() type-mismatch with skia-canvas.
+  //
+  // Define a factory class from scratch that mirrors BaseCanvasFactory.
+  // pdfjs only calls: create(), reset(), destroy() — all inherited from Base.
+  // We only need to implement _createCanvas().
+  const CanvasClass = _CanvasClass;
+  _SkiaCanvasFactory = class SkiaNodeCanvasFactory {
+    // Constructor mirrors BaseCanvasFactory({ enableHWA })
+    constructor(_opts?: any) {}
+
+    // The one method pdfjs calls internally:
+    _createCanvas(width: number, height: number) {
+      return new CanvasClass(Math.max(1, Math.ceil(width)), Math.max(1, Math.ceil(height)));
+    }
+
+    // Methods from BaseCanvasFactory:
+    create(width: number, height: number) {
+      if (width <= 0 || height <= 0) throw new Error("Invalid canvas size");
+      const canvas = this._createCanvas(width, height);
+      return { canvas, context: canvas.getContext("2d") };
+    }
+    reset(pair: any, width: number, height: number) {
+      if (!pair.canvas) throw new Error("Canvas is not specified");
+      if (width <= 0 || height <= 0) throw new Error("Invalid canvas size");
+      pair.canvas.width = Math.max(1, Math.ceil(width));
+      pair.canvas.height = Math.max(1, Math.ceil(height));
+    }
+    destroy(pair: any) {
+      pair.canvas = null;
+      pair.context = null;
+    }
+  };
+
+  // ── Fix workerSrc ──────────────────────────────────────────────────────
+  // pdfjs v4 in Node.js sets workerSrc = "./pdf.worker.mjs" (relative — fails).
+  // Override with absolute file:// URL.
   const { resolve } = await import("path");
   const { pathToFileURL } = await import("url");
   const workerPath = resolve(
@@ -60,15 +80,12 @@ async function getPdfJs() {
 export async function extractTextFromPDF(buffer: Buffer) {
   const pdfjsLib = await getPdfJs();
 
-  // Provide a skia-canvas CanvasFactory so pdfjs uses skia-canvas for ALL
-  // internal canvas operations (inline images, tiling patterns, etc.).
-  // Without this, pdfjs creates its own CanvasElement wrappers which are
-  // incompatible with the skia-canvas ctx.drawImage() call → type error.
-  const CanvasFactory = makeSkiaCanvasFactory(_CanvasClass);
-
+  // pdfjs calls: new CanvasFactory({ ownerDocument, enableHWA })
+  // _SkiaCanvasFactory is a proper class (not an object literal) so
+  // `new _SkiaCanvasFactory()` correctly returns an instance with all methods.
   const loadingTask = pdfjsLib.getDocument({
     data: new Uint8Array(buffer),
-    CanvasFactory,
+    CanvasFactory: _SkiaCanvasFactory,
     useWorkerFetch: false,
     isEvalSupported: false,
     useSystemFonts: true,
